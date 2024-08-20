@@ -1,0 +1,33 @@
+name: uxd Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Make scripts executable
+      run: |
+        chmod +x uxd
+        chmod +x tests.sh
+
+    - name: Run tests
+      run: ./tests.sh
+
+    - name: Check if tests passed
+      run: |
+        if [ $? -ne 0 ]; then
+          echo "Tests failed"
+          exit 1
+        fi

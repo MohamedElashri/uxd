@@ -1,0 +1,165 @@
+#!/bin/bash
+
+# Define color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Function to display the current Unix day
+current_unix_day() {
+    local day=$(( $(date +%s) / 86400 ))
+    echo -e "${CYAN}Current Unix Day:${NC} $day"
+}
+
+# Function to check if a timezone is valid
+is_valid_timezone() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if ! [[ -f "/usr/share/zoneinfo/$1" ]]; then
+            echo -e "${RED}Error: Invalid or unsupported timezone '${1}'. Please use a valid IANA timezone name, e.g., 'America/New_York'.${NC}"
+            exit 1
+        fi
+    else
+        if ! date +%Y-%m-%d -d "TZ=\"$1\" 1970-01-01" &>/dev/null; then
+            echo -e "${RED}Error: Invalid or unsupported timezone '${1}'. Please use a valid IANA timezone name, e.g., 'America/New_York'.${NC}"
+            exit 1
+        fi
+    fi
+}
+
+# Function to convert Unix day to ordinary date
+unix_to_ordinary() {
+    if [[ ! "$1" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}Error: Argument must be a valid Unix day (an integer). Please provide a numeric value representing the Unix day.${NC}"
+        exit 1
+    fi
+
+    if [ -n "$2" ]; then
+        is_valid_timezone "$2"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo -e "${CYAN}Unix Day $1 corresponds to:${NC} $(TZ="$2" date -j -v+"$1"d -f "%Y-%m-%d" "1970-01-01" +%Y-%m-%d)"
+        else
+            echo -e "${CYAN}Unix Day $1 corresponds to:${NC} $(TZ="$2" date -d "1970-01-01 + $1 days" +%Y-%m-%d)"
+        fi
+    else
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo -e "${CYAN}Unix Day $1 corresponds to:${NC} $(date -j -v+"$1"d -f "%Y-%m-%d" "1970-01-01" +%Y-%m-%d)"
+        else
+            echo -e "${CYAN}Unix Day $1 corresponds to:${NC} $(TZ=UTC date -d "1970-01-01 + $1 days" +%Y-%m-%d)"
+        fi
+    fi
+}
+
+# Function to convert ordinary date to Unix day
+ordinary_to_unix() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if ! date -j -f "%Y-%m-%d" "$1" +%s >/dev/null 2>&1; then
+            echo -e "${RED}Error: Argument must be a valid date in the format YYYY-MM-DD. Please ensure the date is correct.${NC}"
+            exit 1
+        fi
+    else
+        if ! date -d "$1" >/dev/null 2>&1; then
+            echo -e "${RED}Error: Argument must be a valid date in the format YYYY-MM-DD. Please ensure the date is correct.${NC}"
+            exit 1
+        fi
+    fi
+
+    if [ -n "$2" ]; then
+        is_valid_timezone "$2"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo -e "${CYAN}Date $1 corresponds to Unix Day:${NC} $(( ($(TZ="$2" date -j -f "%Y-%m-%d" "$1" +%s) - $(date -j -f "%Y-%m-%d" "1970-01-01" +%s)) / 86400 ))"
+        else
+            echo -e "${CYAN}Date $1 corresponds to Unix Day:${NC} $(( ($(TZ="$2" date -d "$1" +%s) - $(date -d "1970-01-01" +%s)) / 86400 ))"
+        fi
+    else
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo -e "${CYAN}Date $1 corresponds to Unix Day:${NC} $(( ($(date -j -f "%Y-%m-%d" "$1" +%s) - $(date -j -f "%Y-%m-%d" "1970-01-01" +%s)) / 86400 ))"
+        else
+            echo -e "${CYAN}Date $1 corresponds to Unix Day:${NC} $(( ($(date -d "$1" +%s) - $(date -d "1970-01-01" +%s)) / 86400 ))"
+        fi
+    fi
+}
+
+# Function to display help message
+show_help() {
+    echo -e "${YELLOW}Usage: uxd [option] [argument] [timezone]${NC}"
+    echo
+    echo -e "${GREEN}Options:${NC}"
+    echo -e "  ${CYAN}-u [unix_day]${NC}    Convert Unix day to ordinary date"
+    echo -e "  ${CYAN}-o [date]${NC}        Convert ordinary date (YYYY-MM-DD) to Unix day"
+    echo -e "  ${CYAN}-i${NC}               Run in interactive mode"
+    echo -e "  ${CYAN}-h${NC}               Display this help message"
+    echo
+    echo -e "${GREEN}Optional Timezone Argument:${NC}"
+    echo -e "  You can specify a timezone as a third argument to -u or -o options."
+    echo -e "  For example: ${CYAN}uxd -u 19000 America/New_York${NC}"
+    echo -e "               ${CYAN}uxd -o 2024-01-01 America/Los_Angeles${NC}"
+    echo
+    echo -e "${GREEN}Examples:${NC}"
+    echo -e "  ${CYAN}uxd${NC}                       # Show current Unix day"
+    echo -e "  ${CYAN}uxd -u 19000${NC}              # Convert Unix day 19000 to ordinary date"
+    echo -e "  ${CYAN}uxd -o 2024-01-01${NC}         # Convert date 2024-01-01 to Unix day"
+    echo -e "  ${CYAN}uxd -u 19000 UTC+2${NC}        # Convert Unix day 19000 to ordinary date in UTC+2 timezone"
+    echo -e "  ${CYAN}uxd -o 2024-01-01 UTC-5${NC}   # Convert date 2024-01-01 to Unix day in UTC-5 timezone"
+}
+
+# Function for interactive mode
+interactive_mode() {
+    echo -e "${YELLOW}Interactive Mode${NC}"
+    echo -e "${CYAN}What would you like to do?${NC}"
+    echo "1) Display the current Unix day"
+    echo "2) Convert Unix day to ordinary date"
+    echo "3) Convert ordinary date to Unix day"
+    echo "4) Exit"
+    read -p "Select an option [1-4]: " option
+
+    case $option in
+        1)
+            current_unix_day
+            ;;
+        2)
+            read -p "Enter the Unix day: " unix_day
+            read -p "Enter the timezone (optional): " timezone
+            unix_to_ordinary "$unix_day" "$timezone"
+            ;;
+        3)
+            read -p "Enter the date (YYYY-MM-DD): " date
+            read -p "Enter the timezone (optional): " timezone
+            ordinary_to_unix "$date" "$timezone"
+            ;;
+        4)
+            echo -e "${CYAN}Goodbye!${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Invalid option. Please select a number between 1 and 4.${NC}"
+            interactive_mode
+            ;;
+    esac
+}
+
+# Main script logic
+if [[ "$#" -eq 0 ]]; then
+    current_unix_day
+elif [[ "$1" == "-u" ]]; then
+    if [[ -z "$2" ]]; then
+        echo -e "${RED}Error: Missing argument for -u option. Please provide a Unix day.${NC}"
+        exit 1
+    fi
+    unix_to_ordinary "$2" "$3"
+elif [[ "$1" == "-o" ]]; then
+    if [[ -z "$2" ]]; then
+        echo -e "${RED}Error: Missing argument for -o option. Please provide a date in the format YYYY-MM-DD.${NC}"
+        exit 1
+    fi
+    ordinary_to_unix "$2" "$3"
+elif [[ "$1" == "-i" ]]; then
+    interactive_mode
+elif [[ "$1" == "-h" ]]; then
+    show_help
+else
+    echo -e "${RED}Error: Invalid option or argument. Use -h for help.${NC}"
+    show_help
+    exit 1
+fi
